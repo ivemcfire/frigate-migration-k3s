@@ -1,0 +1,50 @@
+# Local-path provisioner storage class bound to the 4TB HDD only.
+#
+# k3s ships with a default `local-path` StorageClass that uses
+# /var/lib/rancher/k3s/storage on the node's root disk. For Frigate
+# recordings we need a separate class that points at the HDD mount.
+#
+# Frigate's SQLite DB stays on the SSD via the default class — moving
+# it to the HDD causes locking errors under load.
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path-hdd
+provisioner: rancher.io/local-path
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-path-hdd-config
+  namespace: kube-system
+data:
+  config.json: |
+    {
+      "nodePathMap": [
+        {
+          "node": "k3frigate",
+          "paths": ["/mnt/frigate"]
+        }
+      ]
+    }
+  setup: |
+    #!/bin/sh
+    path=$VOL_DIR
+    mkdir -m 0777 -p "$path"
+  teardown: |
+    #!/bin/sh
+    path=$VOL_DIR
+    rm -rf "$path"
+  helperPod.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: helper-pod
+    spec:
+      containers:
+      - name: helper-pod
+        image: busybox
+        imagePullPolicy: IfNotPresent

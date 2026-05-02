@@ -1,0 +1,7 @@
+*.swp
+.DS_Store
+*.bak
+*.bak.*
+secrets/
+*-creds.yaml
+*-creds.json

@@ -1,0 +1,42 @@
+# /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+#
+# k3s regenerates /var/lib/rancher/k3s/agent/etc/containerd/config.toml on every
+# restart from this template. Editing the rendered file directly is a trap —
+# the next reboot wipes your changes silently.
+#
+# This template adds the `nvidia` runtime so pods with `runtimeClassName: nvidia`
+# can mount the GPU. The rest is the standard k3s containerd template.
+
+version = 2
+
+[plugins."io.containerd.internal.v1.opt"]
+  path = "{{ .NodeConfig.Containerd.Opt }}"
+
+[plugins."io.containerd.grpc.v1.cri"]
+  stream_server_address = "127.0.0.1"
+  stream_server_port = "10010"
+  enable_selinux = {{ .NodeConfig.SELinux }}
+  enable_unprivileged_ports = {{ .EnableUnprivileged }}
+  enable_unprivileged_icmp = {{ .EnableUnprivileged }}
+  sandbox_image = "{{ .SystemdCgroup }}"
+
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  snapshotter = "{{ .NodeConfig.AgentConfig.Snapshotter }}"
+  disable_snapshot_annotations = {{ if eq .NodeConfig.AgentConfig.Snapshotter "stargz" }}false{{ else }}true{{ end }}
+  default_runtime_name = "nvidia"
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+  runtime_type = "io.containerd.runc.v2"
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+  SystemdCgroup = {{ .SystemdCgroup }}
+
+# --- nvidia runtime ---
+# nvidia-container-runtime injects the GPU devices, driver libs, and
+# capabilities into containers that opt in via runtimeClassName.
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia]
+  runtime_type = "io.containerd.runc.v2"
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.nvidia.options]
+  BinaryName = "/usr/bin/nvidia-container-runtime"
+  SystemdCgroup = {{ .SystemdCgroup }}
